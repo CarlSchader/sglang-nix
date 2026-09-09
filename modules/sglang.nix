@@ -310,6 +310,23 @@ in {
     ui = {
       enable = lib.mkEnableOption "Open WebUI frontend wired to this SGLang instance";
 
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = pkgs.open-webui.override {
+          # open-webui -> sentence-transformers -> torchaudio. On aarch64 the
+          # torch stack is not in the binary cache and gets built from source,
+          # where torchaudio's test_batch_melspectrogram fails on a numeric
+          # tolerance (flaky). The tests are not worth a failed rebuild.
+          python3Packages = pkgs.python3Packages.overrideScope (_: prev: {
+            torchaudio = prev.torchaudio.overridePythonAttrs (_: {
+              doCheck = false;
+            });
+          });
+        };
+        defaultText = lib.literalExpression "pkgs.open-webui (with torchaudio tests disabled)";
+        description = "Open WebUI package to run.";
+      };
+
       host = lib.mkOption {
         type = lib.types.str;
         default = "127.0.0.1";
@@ -479,6 +496,7 @@ in {
 
     services.open-webui = lib.mkIf cfg.ui.enable {
       enable = true;
+      package = cfg.ui.package;
       host = cfg.ui.host;
       port = cfg.ui.port;
       openFirewall = cfg.ui.openFirewall;

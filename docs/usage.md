@@ -150,6 +150,7 @@ own via `model.chatTemplate` — their keepalive proxy for agent CLIs, and the
 | `cudaToolkit.enable` | `true` | CUDA toolkit + gcc on the unit PATH for FlashInfer/DeepGEMM JIT. |
 | `cudaToolkit.package` | `cudaPackages_13.cudatoolkit` | Toolkit used for JIT. |
 | `ui.enable` | `false` | Enable Open WebUI wired to this SGLang. |
+| `ui.package` | `pkgs.open-webui` w/ torchaudio tests off | Open WebUI package (see note below). |
 | `ui.host` / `ui.port` | `"127.0.0.1"` / `8080` | UI listen address. |
 | `ui.openFirewall` | `false` | Open the UI port. |
 | `ui.webSearch.enable` | `false` | Enable web search (`duckduckgo` by default). |
@@ -199,6 +200,13 @@ system-library dependency (add it to that package's `buildInputs`, as done
 for numba/oneTBB). Bump the version assertion in `checks.sglangEnvImport`.
 
 ## Troubleshooting
+
+- `python3.14-torchaudio … FAILED test_batch_melspectrogram` while building
+  `open-webui` — Open WebUI drags in nixpkgs' torch stack, which is not in
+  the binary cache on aarch64 and gets built from source (~hours); torchaudio's
+  tests then fail on a flaky tolerance check. `ui.package` defaults to an
+  override with torchaudio tests disabled. If you would rather not build torch
+  at all, run Open WebUI some other way and leave `ui.enable = false`.
 
 - CUDA not found / no GPU detected — the process cannot see the NVIDIA
   driver. Check `hardware.nvidia` is configured and `/run/opengl-driver/lib`
