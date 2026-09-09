@@ -47,32 +47,73 @@ listens on `127.0.0.1:8080`.
 
 ## Presets
 
-### DGX Spark — Qwen3.8-27B NVFP4, 256k context, FP8 KV cache
+### DGX Spark — Qwen3.8-27B NVFP4 + DFlash2 (`nixosModules.dgx-spark-qwen38`)
+
+The fast path from [hasso5703/dgx-spark-qwen38](https://github.com/hasso5703/dgx-spark-qwen38)
+(SGLang + NVFP4 + DFlash2 speculative decoding, deterministic kernels),
+reproduced natively — no Docker, no patch overlay: sglang 0.5.19 already
+carries DFlash v2 and the mrope fix (sglang#34446) their overlay existed for.
 
 ```nix
+imports = [
+  sglang-nix.nixosModules.sglang
+  sglang-nix.nixosModules.dgx-spark-qwen38
+];
+
 services.sglang = {
   enable = true;
   package = sglang-nix.packages.${pkgs.system}.sglangEnv;
-  model = {
-    hfId = "Inferact/Qwen3.8-27B-NVFP4";
-    contextLength = 262144;
-  };
-  kvCacheDtype = "fp8_e4m3";
-  attentionBackend = "triton";
-  memFractionStatic = "0.85";
+  openFirewall = true;
+  ui.enable = true;
 };
 ```
 
-MTP speculative decoding can be added via `extraArgs`:
+Everything the preset sets is `mkDefault`, so any option can be overridden.
+It renders to:
 
-```nix
-extraArgs = [
-  "--speculative-algorithm" "NEXTN"
-  "--speculative-num-steps" "3"
-  "--speculative-eagle-topk" "1"
-  "--speculative-num-draft-tokens" "4"
-];
 ```
+sglang serve --model-path RadixArk/Qwen3.8-27B-NVFP4 --revision 52d1adc5…
+  --served-model-name qwen3.8-27b --context-length 262144 --mem-fraction-static 0.50
+  --attention-backend flashinfer --chunked-prefill-size 8192
+  --speculative-algorithm DFLASH --speculative-draft-model-path z-lab/Qwen3.8-27B-DFlash2
+  --speculative-draft-model-revision 50307d4c… --speculative-num-draft-tokens 8
+  --speculative-draft-model-quantization unquant
+  --enable-torch-compile --torch-compile-max-bs 4 --max-running-requests 8
+  --disable-prefill-cuda-graph --cuda-graph-max-bs 8 --disable-flashinfer-autotune
+  --mamba-radix-cache-strategy extra_buffer --mamba-ssm-dtype bfloat16 --max-mamba-cache-size 96
+  --num-continuous-decode-steps 2 --sleep-on-idle --trust-remote-code
+  --reasoning-parser qwen3 --tool-call-parser qwen3_coder
+```
+
+plus `MemoryMax=100G` on the unit (their Docker `--memory 100g` analogue).
+
+Measured on a DGX Spark with this exact config (`./bench.sh`, greedy,
+thinking on, 800 output tokens, streaming decode rate net of TTFT):
+
+| Workload | tok/s (single stream) |
+| --- | --- |
+| Math / structured reasoning | 55-61 |
+| Code (write / refactor) | 31-35 |
+| Short story | 31-34 |
+| Technical explanation | 23-25 |
+| **8 concurrent streams, aggregate** | **155** (19/stream) |
+
+That matches the upstream repo's own battery (code 32-40, math 41-44,
+prose 22, 135-148 aggregate at 8). Speculative decoding accepts *predictable*
+tokens, so speed depends on what is generated; there is no single number.
+KV pool on this boot: ~400K tokens (above the 262K window). First boot is
+~9 min (torch.compile + CUDA graph capture; the inductor/triton caches live
+in `/var/lib/sglang/.cache` and are reused), plus the ~25 GB download.
+
+**Why `memFractionStatic = "0.50"`**: sglang's accounting does not see
+25-40 GB of transient allocations on GB10 unified memory (autotuner, graph
+capture). Higher fractions have frozen hosts hard. 0.50 leaves ~50 GB of host
+RAM available while serving; treat anything past 0.70 as unsafe.
+
+Not included from upstream: their patched chat template (reasoning-effort
+tiers, mid-conversation system messages → `<system-reminder>`) — pass your
+own via `model.chatTemplate` — their keepalive proxy for agent CLIs, and the
+`--api-key` (the module relies on the firewall instead).
 
 ## Options
 
@@ -85,6 +126,14 @@ extraArgs = [
 | `model.hfId` | — (required) | Hugging Face model id / local path (`--model-path`). |
 | `model.servedModelName` | basename of `hfId` | Name exposed on the API. |
 | `model.contextLength` | `32768` | Context window (`--context-length`). |
+| `model.revision` | `null` | Pin the HF revision (`--revision`). |
+| `model.chatTemplate` | `null` | Chat template override (`--chat-template`). |
+| `speculative.algorithm` | `null` | `--speculative-algorithm` (`DFLASH`, `EAGLE3`, `NEXTN`, ...); `null` = off. |
+| `speculative.draftModelPath` / `draftModelRevision` | `null` | Draft model for the speculative algorithm. |
+| `speculative.numDraftTokens` / `numSteps` / `eagleTopk` | `null` | Speculative tuning knobs. |
+| `speculative.draftModelQuantization` | `null` | e.g. `"unquant"`. |
+| `torchCompile.enable` / `torchCompile.maxBs` | `false` / `null` | `--enable-torch-compile [--torch-compile-max-bs N]`. |
+| `memoryMax` | `null` | systemd `MemoryMax=` for the unit, e.g. `"100G"`. |
 | `maxRunningRequests` | `8` | `--max-running-requests` (`null` to omit). |
 | `chunkedPrefillSize` | `null` | `--chunked-prefill-size` (`null` to omit, `-1` disables). |
 | `memFractionStatic` | `"0.85"` | `--mem-fraction-static`. Keep conservative on unified-memory GPUs (DGX Spark): the desktop/driver hold several GiB at startup. |
@@ -126,7 +175,8 @@ extraArgs = [
 ## Operational notes
 
 - **State** lives in `/var/lib/sglang`; model weights are cached under
-  `/var/lib/sglang/huggingface`. First start downloads the weights
+  `/var/lib/sglang/huggingface`, JIT/torch.compile caches under
+  `/var/lib/sglang/.cache`. First start downloads the weights
   (`TimeoutStartSec` is 60 min for that reason).
 - **Gated models**: put `HF_TOKEN=...` in a root-owned file and point
   `services.sglang.environmentFile` at it.

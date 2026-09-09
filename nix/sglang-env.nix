@@ -176,6 +176,7 @@ flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux"] (system: let
     inherit system;
     modules = [
       ../modules/sglang.nix
+      ../modules/dgx-spark-qwen38.nix
       {
         nixpkgs.hostPlatform = system;
         nixpkgs.config.allowUnfree = true;
@@ -190,13 +191,6 @@ flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux"] (system: let
           enable = true;
           package = sglangEnv;
           openFirewall = true;
-          model = {
-            hfId = "Inferact/Qwen3.8-27B-NVFP4";
-            servedModelName = "Qwen3.8-27B-NVFP4";
-            contextLength = 262144;
-          };
-          kvCacheDtype = "fp8_e4m3";
-          attentionBackend = "triton";
           ui = {
             enable = true;
             webSearch.enable = true;
@@ -242,6 +236,7 @@ in {
     # with services.open-webui regresses.
     sglangModuleEval = pkgs.writeText "sglang-module-eval" (builtins.toJSON {
       execStart = moduleEval.config.systemd.services.sglang.serviceConfig.ExecStart;
+      memoryMax = moduleEval.config.systemd.services.sglang.serviceConfig.MemoryMax;
       openWebuiEnabled = moduleEval.config.services.open-webui.enable;
       firewallPorts = moduleEval.config.networking.firewall.allowedTCPPorts;
     });

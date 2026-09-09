@@ -9,29 +9,32 @@ Sibling of [vllm-nix](https://github.com/carlschader/vllm-nix); same layout,
 different engine. Supports `x86_64-linux` and `aarch64-linux` (DGX Spark).
 
 ```nix
-imports = [ sglang-nix.nixosModules.sglang ];
+imports = [
+  sglang-nix.nixosModules.sglang
+  sglang-nix.nixosModules.dgx-spark-qwen38   # optional preset, see below
+];
 
 services.sglang = {
   enable = true;
   package = sglang-nix.packages.${pkgs.system}.sglangEnv;
-  model = {
-    hfId = "Inferact/Qwen3.8-27B-NVFP4";
-    servedModelName = "Qwen3.8-27B-NVFP4";
-    contextLength = 262144;
-  };
-  kvCacheDtype = "fp8_e4m3";
-  attentionBackend = "triton";
   ui.enable = true;
 };
 ```
 
-See [docs/usage.md](docs/usage.md) for the full option reference, the DGX
-Spark preset, update procedure, and troubleshooting.
+The `dgx-spark-qwen38` preset reproduces the fast Qwen3.8-27B config from
+[hasso5703/dgx-spark-qwen38](https://github.com/hasso5703/dgx-spark-qwen38)
+(NVFP4 + DFlash2 speculative decoding) natively, without Docker: measured
+here at 55-61 tok/s on math, 31-35 on code single-stream and **155 tok/s
+aggregate at 8 streams**. `./bench.sh` reproduces the measurement.
+
+See [docs/usage.md](docs/usage.md) for the full option reference, the preset
+details and numbers, update procedure, and troubleshooting.
 
 ## Flake outputs
 
 - `packages.<system>.sglangEnv` (also `default`) — the pinned python env (`bin/sglang`, `bin/hf`, `bin/python`)
 - `nixosModules.sglang` (also `default`) — the `services.sglang` module
+- `nixosModules.dgx-spark-qwen38` — preset: Qwen3.8-27B NVFP4 + DFlash2 on a DGX Spark
 - `checks.<system>.{sglangEnvImport,sglangModuleEval}` — env import + module eval smoke tests
 - `devShells.<system>.default` — uv/CUDA dev shell for working on the lock file
 

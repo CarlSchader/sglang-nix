@@ -36,6 +36,21 @@
       "--tp-size"
       (toString cfg.tensorParallelSize)
     ]
+    ++ lib.optionals (cfg.model.revision != null) ["--revision" cfg.model.revision]
+    ++ lib.optionals (cfg.model.chatTemplate != null) ["--chat-template" (toString cfg.model.chatTemplate)]
+    ++ lib.optionals (cfg.speculative.algorithm != null) (
+      ["--speculative-algorithm" cfg.speculative.algorithm]
+      ++ lib.optionals (cfg.speculative.draftModelPath != null) ["--speculative-draft-model-path" cfg.speculative.draftModelPath]
+      ++ lib.optionals (cfg.speculative.draftModelRevision != null) ["--speculative-draft-model-revision" cfg.speculative.draftModelRevision]
+      ++ lib.optionals (cfg.speculative.numDraftTokens != null) ["--speculative-num-draft-tokens" (toString cfg.speculative.numDraftTokens)]
+      ++ lib.optionals (cfg.speculative.numSteps != null) ["--speculative-num-steps" (toString cfg.speculative.numSteps)]
+      ++ lib.optionals (cfg.speculative.eagleTopk != null) ["--speculative-eagle-topk" (toString cfg.speculative.eagleTopk)]
+      ++ lib.optionals (cfg.speculative.draftModelQuantization != null) ["--speculative-draft-model-quantization" cfg.speculative.draftModelQuantization]
+    )
+    ++ lib.optionals cfg.torchCompile.enable (
+      ["--enable-torch-compile"]
+      ++ lib.optionals (cfg.torchCompile.maxBs != null) ["--torch-compile-max-bs" (toString cfg.torchCompile.maxBs)]
+    )
     ++ lib.optionals (cfg.maxRunningRequests != null) ["--max-running-requests" (toString cfg.maxRunningRequests)]
     ++ lib.optionals (cfg.chunkedPrefillSize != null) ["--chunked-prefill-size" (toString cfg.chunkedPrefillSize)]
     ++ lib.optionals (cfg.kvCacheDtype != null) ["--kv-cache-dtype" cfg.kvCacheDtype]
@@ -96,6 +111,91 @@ in {
         example = 262144;
         description = "Context window (`--context-length`).";
       };
+
+      revision = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "52d1adc5f38aa5ebf099c29ed7025ba34cfbb854";
+        description = "Pin the Hugging Face revision (`--revision`) so an upstream push can't change what is served.";
+      };
+
+      chatTemplate = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = "Override the chat template (`--chat-template`), e.g. one patched for agentic clients.";
+      };
+    };
+
+    speculative = {
+      algorithm = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "DFLASH";
+        description = "`--speculative-algorithm` (EAGLE, EAGLE3, NEXTN, DFLASH, NGRAM, ...). null disables speculative decoding.";
+      };
+
+      draftModelPath = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "z-lab/Qwen3.8-27B-DFlash2";
+        description = "`--speculative-draft-model-path`.";
+      };
+
+      draftModelRevision = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "`--speculative-draft-model-revision`.";
+      };
+
+      numDraftTokens = lib.mkOption {
+        type = lib.types.nullOr lib.types.ints.positive;
+        default = null;
+        example = 8;
+        description = "`--speculative-num-draft-tokens`.";
+      };
+
+      numSteps = lib.mkOption {
+        type = lib.types.nullOr lib.types.ints.positive;
+        default = null;
+        description = "`--speculative-num-steps` (EAGLE/NEXTN).";
+      };
+
+      eagleTopk = lib.mkOption {
+        type = lib.types.nullOr lib.types.ints.positive;
+        default = null;
+        description = "`--speculative-eagle-topk` (EAGLE/NEXTN).";
+      };
+
+      draftModelQuantization = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "unquant";
+        description = "`--speculative-draft-model-quantization`.";
+      };
+    };
+
+    torchCompile = {
+      enable = lib.mkEnableOption "`--enable-torch-compile` (slower first boot, faster decode; inductor cache persists in the state dir)";
+
+      maxBs = lib.mkOption {
+        type = lib.types.nullOr lib.types.ints.positive;
+        default = null;
+        example = 4;
+        description = "`--torch-compile-max-bs`.";
+      };
+    };
+
+    memoryMax = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "100G";
+      description = ''
+        systemd `MemoryMax=` for the service. On unified-memory hosts (DGX
+        Spark) a runaway engine can drive host memory to zero and freeze the
+        box; a cap makes the OOM killer take the engine instead. Note the
+        cgroup does not see CUDA unified allocations, so `memFractionStatic`
+        remains the real guard.
+      '';
     };
 
     maxRunningRequests = lib.mkOption {
@@ -281,6 +381,10 @@ in {
           HOME = stateDir;
           HF_HOME = "${stateDir}/huggingface";
           XDG_CACHE_HOME = "${stateDir}/.cache";
+          # Persist torch.compile / triton / flashinfer JIT artefacts across
+          # restarts (they are the bulk of the multi-minute first boot).
+          TORCHINDUCTOR_CACHE_DIR = "${stateDir}/.cache/inductor";
+          TRITON_CACHE_DIR = "${stateDir}/.cache/triton";
           # The wheels are patched to find everything except the driver and
           # the system C++/zlib libraries; provide those here (mirrors the
           # dev shell).
@@ -332,6 +436,7 @@ in {
         TimeoutStartSec = "60min";
 
         EnvironmentFile = lib.optional (cfg.environmentFile != null) cfg.environmentFile;
+        MemoryMax = lib.mkIf (cfg.memoryMax != null) cfg.memoryMax;
 
         # GPU access
         SupplementaryGroups = ["video" "render"];
