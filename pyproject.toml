@@ -1,0 +1,33 @@
+[project]
+name = "sglang-nix"
+version = "0.1.0"
+description = "Pinned SGLang environment (uv.lock -> Nix via uv2nix) and NixOS module"
+readme = "README.md"
+authors = [
+    { name = "carlschader", email = "carlschader@proton.me" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "sglang>=0.5.19",
+    # see [tool.uv.sources] below
+    "cuda-tile",
+]
+
+[project.scripts]
+sglang-nix = "sglang_nix:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+# sglang pins cuda-tile==1.6.0rc5, which on PyPI is only a `wheel_stub` that
+# downloads the real wheel from pypi.nvidia.com at install time (not
+# reproducible, and it breaks the wheels-only Nix build). Fetch that one
+# package from NVIDIA's index directly so uv.lock carries real wheel hashes.
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com/"
+explicit = true
+
+[tool.uv.sources]
+cuda-tile = { index = "nvidia" }
