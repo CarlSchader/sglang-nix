@@ -32,7 +32,10 @@ in {
       memFractionStatic = lib.mkDefault "0.50";
       memoryMax = lib.mkDefault "100G";
       maxRunningRequests = lib.mkDefault 8;
-      chunkedPrefillSize = lib.mkDefault 8192;
+      # Prefill runs ~1K tok/s on the GB10, so an 8192 chunk is ~8s of
+      # wall-clock during which (without mixed chunk) no decode step runs and
+      # every other stream freezes. 4096 halves the per-step stall.
+      chunkedPrefillSize = lib.mkDefault 4096;
       attentionBackend = lib.mkDefault "flashinfer";
       kvCacheDtype = lib.mkDefault null; # NVFP4 checkpoint ships KV scales
       trustRemoteCode = lib.mkDefault true;
@@ -53,6 +56,12 @@ in {
       };
 
       extraArgs = lib.mkDefault [
+        # Interleave decode steps with another request's prefill chunks.
+        # Default prefill-first scheduling pauses all running streams until
+        # the new prompt is fully prefilled: measured 20s-280s stalls for
+        # 100K-200K prompts. DFLASH is in spec_info.supports_mixed_chunk, so
+        # this is not silently disabled.
+        "--enable-mixed-chunk"
         "--disable-prefill-cuda-graph"
         "--cuda-graph-max-bs"
         "8"
