@@ -1,6 +1,6 @@
 # Using sglang-nix on a NixOS host
 
-`sglang-nix` packages a pinned SGLang 0.5.19 environment (built from `uv.lock`
+`sglang-nix` packages a pinned SGLang 0.5.20 environment (built from `uv.lock`
 with uv2nix — prebuilt wheels only, no source builds) and a NixOS module that
 runs it as a hardened, auto-restarting systemd service, optionally fronted by
 Open WebUI.
@@ -51,7 +51,7 @@ listens on `127.0.0.1:8080`.
 
 The fast path from [hasso5703/dgx-spark-qwen38](https://github.com/hasso5703/dgx-spark-qwen38)
 (SGLang + NVFP4 + DFlash2 speculative decoding, deterministic kernels),
-reproduced natively — no Docker, no patch overlay: sglang 0.5.19 already
+reproduced natively — no Docker, no patch overlay: sglang 0.5.20 already
 carries DFlash v2 and the mrope fix (sglang#34446) their overlay existed for.
 
 ```nix

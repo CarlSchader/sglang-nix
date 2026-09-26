@@ -14,7 +14,7 @@ flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux"] (system: let
     config.allowUnfree = true;
   };
 
-  # Read the uv.lock pinning sglang 0.5.19 (and friends) from the workspace root.
+  # Read the uv.lock pinning sglang 0.5.20 (and friends) from the workspace root.
   workspace = uv2nix.lib.workspace.loadWorkspace {
     workspaceRoot = ../.;
   };
@@ -83,6 +83,7 @@ flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux"] (system: let
     "nvidia-nvshmem-cu13"
     "nvidia-nvtx"
     "nvidia-nvvm"
+    "nvshmem4py-cu13"
     "quack-kernels"
     "sgl-deep-ep"
     "sgl-deep-gemm"
@@ -221,7 +222,7 @@ in {
         import sglang
         print("sglang", sglang.__version__)
         print("torch", torch.__version__)
-        assert sglang.__version__ == "0.5.19", sglang.__version__
+        assert sglang.__version__ == "0.5.20", sglang.__version__
         EOF
         hf --help > /dev/null
         runHook postBuild

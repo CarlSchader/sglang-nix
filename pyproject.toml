@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "sglang>=0.5.19",
+    "sglang>=0.5.20",
     # see [tool.uv.sources] below
     "cuda-tile",
 ]

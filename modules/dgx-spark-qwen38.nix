@@ -3,7 +3,7 @@
 # This is the "stock" 27B target of https://github.com/hasso5703/dgx-spark-qwen38
 # (measured there at ~50 tok/s greedy median single-stream, 135-148 tok/s
 # aggregate at 8 streams), reproduced natively from the pinned sglang env
-# instead of their Docker image + patch overlay: sglang 0.5.19 already carries
+# instead of their Docker image + patch overlay: sglang 0.5.20 already carries
 # DFlash v2 and the mrope fix (sglang#34446) their overlay existed for.
 #
 # Everything is mkDefault, so any option can still be overridden. Import next
