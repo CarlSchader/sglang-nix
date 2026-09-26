@@ -74,12 +74,13 @@ It renders to:
 ```
 sglang serve --model-path RadixArk/Qwen3.8-27B-NVFP4 --revision 52d1adc5…
   --served-model-name qwen3.8-27b --context-length 262144 --mem-fraction-static 0.50
-  --attention-backend flashinfer --chunked-prefill-size 8192
+  --attention-backend flashinfer --chunked-prefill-size 4096
+  --tokenizer-worker-num 4 --detokenizer-worker-num 2
   --speculative-algorithm DFLASH --speculative-draft-model-path z-lab/Qwen3.8-27B-DFlash2
   --speculative-draft-model-revision 50307d4c… --speculative-num-draft-tokens 8
   --speculative-draft-model-quantization unquant
   --enable-torch-compile --torch-compile-max-bs 4 --max-running-requests 8
-  --disable-prefill-cuda-graph --cuda-graph-max-bs 8 --disable-flashinfer-autotune
+  --enable-mixed-chunk --disable-prefill-cuda-graph --cuda-graph-max-bs 8 --disable-flashinfer-autotune
   --mamba-radix-cache-strategy extra_buffer --mamba-ssm-dtype bfloat16 --max-mamba-cache-size 96
   --num-continuous-decode-steps 2 --sleep-on-idle --trust-remote-code
   --reasoning-parser qwen3 --tool-call-parser qwen3_coder
@@ -136,6 +137,8 @@ own via `model.chatTemplate` — their keepalive proxy for agent CLIs, and the
 | `memoryMax` | `null` | systemd `MemoryMax=` for the unit, e.g. `"100G"`. |
 | `maxRunningRequests` | `8` | `--max-running-requests` (`null` to omit). |
 | `chunkedPrefillSize` | `null` | `--chunked-prefill-size` (`null` to omit, `-1` disables). |
+| `tokenizerWorkers` | `null` | `--tokenizer-worker-num`. >1 fans HTTP + tokenization + streaming out over N processes so one huge prompt does not stall every other stream. |
+| `detokenizerWorkers` | `null` | `--detokenizer-worker-num` (pair with `tokenizerWorkers` > 1). |
 | `memFractionStatic` | `"0.85"` | `--mem-fraction-static`. Keep conservative on unified-memory GPUs (DGX Spark): the desktop/driver hold several GiB at startup. |
 | `tensorParallelSize` | `1` | `--tp-size`. |
 | `kvCacheDtype` | `null` | e.g. `"fp8_e4m3"`, `"fp8_e5m2"`, `"nvfp4"`. |

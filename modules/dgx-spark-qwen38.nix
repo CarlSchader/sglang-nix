@@ -36,6 +36,18 @@ in {
       # wall-clock during which (without mixed chunk) no decode step runs and
       # every other stream freezes. 4096 halves the per-step stall.
       chunkedPrefillSize = lib.mkDefault 4096;
+      # The GB10 has 20 CPU cores and the GPU loop pins itself to one; by
+      # default the *whole* CPU side (HTTP, tokenization, streaming,
+      # reasoning/tool parsers) also runs in one single-threaded process
+      # (sglang forces TOKENIZERS_PARALLELISM=false and encodes inline in the
+      # event loop). Tokenizing a 150K-200K prompt there takes seconds, during
+      # which every other agent's stream stops receiving output. Fan the CPU
+      # side out over several worker processes: with 8 running requests, 4
+      # tokenizer workers keep one long prompt from stalling the rest.
+      # Cost: each worker is a python process importing torch (a few GB host
+      # RSS total), covered by memoryMax below.
+      tokenizerWorkers = lib.mkDefault 4;
+      detokenizerWorkers = lib.mkDefault 2;
       attentionBackend = lib.mkDefault "flashinfer";
       kvCacheDtype = lib.mkDefault null; # NVFP4 checkpoint ships KV scales
       trustRemoteCode = lib.mkDefault true;

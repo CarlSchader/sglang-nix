@@ -53,6 +53,8 @@
     )
     ++ lib.optionals (cfg.maxRunningRequests != null) ["--max-running-requests" (toString cfg.maxRunningRequests)]
     ++ lib.optionals (cfg.chunkedPrefillSize != null) ["--chunked-prefill-size" (toString cfg.chunkedPrefillSize)]
+    ++ lib.optionals (cfg.tokenizerWorkers != null) ["--tokenizer-worker-num" (toString cfg.tokenizerWorkers)]
+    ++ lib.optionals (cfg.detokenizerWorkers != null) ["--detokenizer-worker-num" (toString cfg.detokenizerWorkers)]
     ++ lib.optionals (cfg.kvCacheDtype != null) ["--kv-cache-dtype" cfg.kvCacheDtype]
     ++ lib.optionals (cfg.attentionBackend != null) ["--attention-backend" cfg.attentionBackend]
     ++ lib.optionals (cfg.toolCallParser != null) ["--tool-call-parser" cfg.toolCallParser]
@@ -209,6 +211,26 @@ in {
       default = null;
       example = 2048;
       description = "`--chunked-prefill-size` (null to use sglang's default, -1 to disable chunked prefill).";
+    };
+
+    tokenizerWorkers = lib.mkOption {
+      type = lib.types.nullOr lib.types.ints.positive;
+      default = null;
+      example = 4;
+      description = ''
+        `--tokenizer-worker-num`. With the default (1) a single process on a
+        single core serves HTTP, tokenizes every prompt synchronously in its
+        event loop, streams all outputs and runs the reasoning/tool-call
+        parsers; one very long prompt stalls output for every other client
+        while it tokenizes. N > 1 runs N HTTP+tokenizer worker processes.
+      '';
+    };
+
+    detokenizerWorkers = lib.mkOption {
+      type = lib.types.nullOr lib.types.ints.positive;
+      default = null;
+      example = 2;
+      description = "`--detokenizer-worker-num`. Only useful together with `tokenizerWorkers` > 1.";
     };
 
     memFractionStatic = lib.mkOption {
