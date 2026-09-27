@@ -80,7 +80,7 @@ sglang serve --model-path RadixArk/Qwen3.8-27B-NVFP4 --revision 52d1adc5…
   --speculative-draft-model-revision 50307d4c… --speculative-num-draft-tokens 8
   --speculative-draft-model-quantization unquant
   --enable-torch-compile --torch-compile-max-bs 4 --max-running-requests 8
-  --enable-mixed-chunk --disable-prefill-cuda-graph --cuda-graph-max-bs 8 --disable-flashinfer-autotune
+  --enable-mixed-chunk --disable-prefill-cuda-graph --cuda-graph-max-bs-decode 8 --disable-flashinfer-autotune
   --mamba-radix-cache-strategy extra_buffer --mamba-ssm-dtype bfloat16 --max-mamba-cache-size 96
   --num-continuous-decode-steps 2 --sleep-on-idle --trust-remote-code
   --reasoning-parser qwen3 --tool-call-parser qwen3_coder

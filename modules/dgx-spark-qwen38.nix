@@ -75,7 +75,9 @@ in {
         # this is not silently disabled.
         "--enable-mixed-chunk"
         "--disable-prefill-cuda-graph"
-        "--cuda-graph-max-bs"
+        # Newer sglang split --cuda-graph-max-bs into -decode/-prefill; the
+        # old name is now an ambiguous argparse prefix and aborts startup.
+        "--cuda-graph-max-bs-decode"
         "8"
         # Deterministic kernels: reproducible tok/s across boots, and the
         # autotuner is one of the untracked memory bursts above.
