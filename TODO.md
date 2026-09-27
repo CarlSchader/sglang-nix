@@ -12,3 +12,4 @@
   - pi findings: <https://pi.dev/session/#912dd8b9082787be42ca8e58b00d6c19>
 - Poor radix-cache hit rate on repeat long prompts (many 150K+ prefills with `#cached-token < 400`).
   - Check whether `--max-mamba-cache-size 96` / `extra_buffer` is evicting, or clients vary system prompts.
+- Try and get startup time to come down
