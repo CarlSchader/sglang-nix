@@ -202,7 +202,28 @@ nix run .#sglang-watch -- --window 120 -i 2
 
 The source lives in `tools/sglang-watch/` (Rust; deps: `serde_json`,
 `libc`); `cargo build --release` there works too, and the unit tests are
-run as part of the nix build (`doCheck`).
+run as part of the nix build (`doCheck`). It's a self-contained binary,
+so — unlike the Linux-only CUDA env — it's packaged for every default
+system (`eachDefaultSystem`): both Linux and macOS. The only OS-specific
+panel is the local `ss` client probe, which just shows `clients —` on
+macOS; all telemetry is HTTP.
+
+### Remote use
+
+All telemetry is read-only HTTP, so the dashboard can run on any machine
+that can reach the serving port — it doesn't have to be the serving host:
+
+```console
+nix run .#sglang-watch -- --url http://<server-ip>:30000
+```
+
+(`services.sglang.host` defaults to `0.0.0.0`, so the server already
+binds all interfaces; if the host firewall is on, allow the API port with
+`services.sglang.openFirewall = true` — it defaults to `false`.) The one
+caveat: the `clients` line counts connections *from the machine running
+the dashboard* (via local `ss`), so pass `--no-clients` when watching
+remotely. Server-side request counts (`running`, `queued`) come from
+`/v1/loads` and are correct from anywhere.
 
 Panels (from the always-on `/v1/loads` scheduler snapshot, no server flags
 needed):

@@ -3,7 +3,12 @@
   flake-utils,
   ...
 }:
-flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux"] (system:
+# Cross-platform on purpose: unlike the Linux-only CUDA python env
+# (nix/sglang-env.nix), this is a self-contained Rust binary, so it builds
+# on every default system. The only OS-specific panel (the `ss` client
+# probe) degrades to `clients —` on systems without `ss` (e.g. darwin);
+# all telemetry is HTTP and works everywhere.
+flake-utils.lib.eachDefaultSystem (system:
   let
     pkgs = import nixpkgs {
       inherit system;
@@ -34,7 +39,12 @@ flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux"] (system:
         description = "Terminal dashboard for a running SGLang server";
         homepage = "https://github.com/CarlSchader/sglang-nix";
         mainProgram = "sglang-watch";
-        platforms = ["x86_64-linux" "aarch64-linux"];
+        platforms = [
+          "x86_64-linux"
+          "aarch64-linux"
+          "x86_64-darwin"
+          "aarch64-darwin"
+        ];
       };
     };
   }
