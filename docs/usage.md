@@ -189,6 +189,44 @@ own via `model.chatTemplate` — their keepalive proxy for agent CLIs, and the
 - **UI ↔ API wiring**: the module sets `OPENAI_API_BASE_URL` to
   `http://127.0.0.1:<port>/v1` for Open WebUI and disables the Ollama API.
 
+## Monitoring
+
+`sglang-watch` (flake package `packages.<system>.sglang-watch`) is a
+terminal dashboard for a running server — safe to run on the serving host:
+
+```console
+nix run .#sglang-watch                   # live TUI, 1s refresh
+nix run .#sglang-watch -- --once         # one plain-text snapshot (exit 2 if unreachable)
+nix run .#sglang-watch -- --window 120 -i 2
+```
+
+The source lives in `tools/sglang-watch/` (Rust; deps: `serde_json`,
+`libc`); `cargo build --release` there works too, and the unit tests are
+run as part of the nix build (`doCheck`).
+
+Panels (from the always-on `/v1/loads` scheduler snapshot, no server flags
+needed):
+
+- **Throughput** — decode tok/s over a sliding window + sparkline
+- **Prefill** — busy % of the window spent on prefills that interrupted the
+  active decode loop (the thrashing signal: 0 % while idle or pure decode,
+  climbs when big prompts keep cutting into in-flight streams); plus pending
+  prefill tokens and uncached-prefill rate; `PREFILL-BUSY` chip at ≥ 60 %
+- **Requests** — running/max-running, queued, retracted; `SATURATED` chip
+  when the batch is full and requests queue
+- **KV cache** — pool usage (red ≥ 90 %, `KV-PRESSURE` chip), used/total
+  tokens, radix cache hit rate; `CACHE-MISS` chip when fresh-token prefill
+  is fast and hit rate < 25 %
+- **Spec decode** — accept length / rate (DFlash2, EAGLE, ...)
+- **Latency** — mean decode step time (inter-token latency) and batch size
+- **VRAM** — weights / KV cache / CUDA-graph breakdown
+- **clients** — distinct peer hosts + established connections on the API
+  port (via `ss`; skip with `--no-clients`)
+
+If the server was started with `--enable-metrics` (not set by default in
+this module — add it via `services.sglang.extraArgs`), the TUI also picks up
+`/metrics` and shows TTFT and end-to-end latency p50/p95.
+
 ## Updating SGLang
 
 ```console

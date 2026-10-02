@@ -1,0 +1,17 @@
+[package]
+name = "sglang-watch"
+version = "0.1.0"
+edition = "2021"
+description = "Terminal dashboard for a running SGLang server"
+
+[[bin]]
+name = "sglang-watch"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2"
+serde_json = "1"
+
+[profile.release]
+strip = true
+lto = true

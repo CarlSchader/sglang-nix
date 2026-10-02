@@ -33,10 +33,17 @@ details and numbers, update procedure, and troubleshooting.
 ## Flake outputs
 
 - `packages.<system>.sglangEnv` (also `default`) — the pinned python env (`bin/sglang`, `bin/hf`, `bin/python`)
+- `packages.<system>.sglang-watch` — terminal dashboard for a running server (Rust; see [Monitoring](#monitoring))
 - `nixosModules.sglang` (also `default`) — the `services.sglang` module
 - `nixosModules.dgx-spark-qwen38` — preset: Qwen3.8-27B NVFP4 + DFlash2 on a DGX Spark
 - `checks.<system>.{sglangEnvImport,sglangModuleEval}` — env import + module eval smoke tests
 - `devShells.<system>.default` — uv/CUDA dev shell for working on the lock file
+
+## Monitoring
+
+`sglang-watch` is a terminal dashboard for a running server (throughput,
+prefill load, KV cache, spec-decode accept, clients):
+`nix run .#sglang-watch` — details in [docs/usage.md](docs/usage.md#monitoring).
 
 ## Development
 
