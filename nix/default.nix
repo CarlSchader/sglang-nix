@@ -4,4 +4,5 @@ flake-utils.lib.meld inputs [
   ./shells.nix
   ./sglang-env.nix
   ./sglang-watch.nix
+  ./sd-cpp.nix
 ]

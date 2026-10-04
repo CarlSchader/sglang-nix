@@ -27,6 +27,13 @@ The `dgx-spark-qwen38` preset reproduces the fast Qwen3.8-27B config from
 here at 55-61 tok/s on math, 31-35 on code single-stream and **155 tok/s
 aggregate at 8 streams**. `./bench.sh` reproduces the measurement.
 
+Also: a pinned [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp)
+CUDA build with an NixOS module (`services.sd-cpp`) that serves its `sd-server`
+HTTP API as a hardened systemd service, plus a preset that pins the
+[Qwen-Image-2.1 Uncensored GGUF](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF)
+weights — OpenAI-compatible `POST /v1/images/generations`, no ComfyUI needed
+(measured ~30 s/image at 1024² on a RTX 4090).
+
 See [docs/usage.md](docs/usage.md) for the full option reference, the preset
 details and numbers, update procedure, and troubleshooting.
 
@@ -34,9 +41,12 @@ details and numbers, update procedure, and troubleshooting.
 
 - `packages.<system>.sglangEnv` (also `default`) — the pinned python env (`bin/sglang`, `bin/hf`, `bin/python`)
 - `packages.<system>.sglang-watch` — terminal dashboard for a running server (Rust; see [Monitoring](#monitoring))
+- `packages.<system>.sdcpp` — pinned stable-diffusion.cpp CUDA build (`bin/sd-cli`, `bin/sd-server`)
 - `nixosModules.sglang` (also `default`) — the `services.sglang` module
 - `nixosModules.dgx-spark-qwen38` — preset: Qwen3.8-27B NVFP4 + DFlash2 on a DGX Spark
-- `checks.<system>.{sglangEnvImport,sglangModuleEval}` — env import + module eval smoke tests
+- `nixosModules.sd-cpp` — the `services.sd-cpp` image-generation server module
+- `nixosModules."qwen-image-2.1-uc"` — preset for sd-cpp: Qwen-Image-2.1 Uncensored GGUF (SHA256-pinned weights)
+- `checks.<system>.{sglangEnvImport,sglangModuleEval,sdcppVersion,sdcppModuleEval}` — env import, module-eval and binary smoke tests
 - `devShells.<system>.default` — uv/CUDA dev shell for working on the lock file
 
 ## Monitoring
@@ -49,5 +59,6 @@ prefill load, KV cache, spec-decode accept, clients):
 
 ```console
 nix build .#sglangEnv   # build the environment
+nix build .#sdcpp       # build the sd.cpp CUDA binaries
 nix flake check         # import + module-eval checks
 ```
